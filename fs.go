@@ -1,17 +1,60 @@
 package lorca
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
+func generateRandomKey() (string, error) {
+	bytes := make([]byte, 32) //generate a random 32 byte key for AES-256
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(bytes), nil
+}
+
+func encrypt(plain []byte, keyString string) ([]byte, error) {
+
+	key, _ := hex.DecodeString(keyString)
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, aesGCM.NonceSize())
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	cipher := aesGCM.Seal(nonce, nonce, plain, nil)
+	return cipher, nil
+}
+
 // Embed is a helper function that embeds assets from the given directories
 // into a Go source file. It is designed to be called from some generator
 // script, see example project to find out how it can be used.
 func Embed(packageName, file string, dirs ...string) error {
+	// generate random key for encryption
+	key, err := generateRandomKey()
+	if err != nil {
+		return err
+	}
+
 	w, err := os.Create(file)
 	if err != nil {
 		return err
@@ -26,13 +69,44 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/hex"
+	"io"
 )
 
 var assets = map[string][]byte{}
-
+var key = "`+key+`"
 var FS = &fs{}
 
 type fs struct {}
+
+func decrypt(enc []byte, keyString string) ([]byte, error) {
+
+	key, _ := hex.DecodeString(keyString)
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonceSize := aesGCM.NonceSize()
+
+	nonce, ciphertext := enc[:nonceSize], enc[nonceSize:]
+
+	plain, err := aesGCM.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return plain, nil
+}
 
 func (fs *fs) Open(name string) (http.File, error) {
 	if name == "/" {
@@ -42,7 +116,11 @@ func (fs *fs) Open(name string) (http.File, error) {
 	if !ok {
 		return nil, os.ErrNotExist
 	}
-	return &file{name: name, size: len(b), Reader: bytes.NewReader(b)}, nil
+	plain, err := decrypt(b, key)
+	if err != nil {
+		return nil, err
+	}
+	return &file{name: name, size: len(plain), Reader: bytes.NewReader(plain)}, nil
 }
 
 func (fs *fs) Close() error { return nil }
@@ -58,7 +136,11 @@ func (fs *fs) Sys() interface{} { return nil }
 func (fs *fs) Readdir(count int) ([]os.FileInfo, error) {
 	files := []os.FileInfo{}
 	for name, data := range assets {
-		files = append(files, &file{name: name, size: len(data), Reader: bytes.NewReader(data)})
+		plain, err := decrypt(data, key)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, &file{name: name, size: len(plain), Reader: bytes.NewReader(plain)})
 	}
 	return files, nil
 }
