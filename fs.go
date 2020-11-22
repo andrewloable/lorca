@@ -71,9 +71,7 @@ import (
 	"time"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"encoding/hex"
-	"io"
 )
 
 var assets = map[string][]byte{}
@@ -174,13 +172,17 @@ func init() {
 			if err != nil {
 				return err
 			}
+			cipher, err := encrypt(b, key)
+			if err != nil {
+				return err
+			}
 			path = filepath.ToSlash(path)
 			fmt.Fprintf(w, `	assets[%q] = []byte{`, strings.TrimPrefix(path, dir))
-			for i := 0; i < len(b); i++ {
+			for i := 0; i < len(cipher); i++ {
 				if i > 0 {
 					fmt.Fprintf(w, `, `)
 				}
-				fmt.Fprintf(w, `0x%02x`, b[i])
+				fmt.Fprintf(w, `0x%02x`, cipher[i])
 			}
 			fmt.Fprintln(w, `}`)
 			return nil
