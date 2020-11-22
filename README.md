@@ -15,6 +15,9 @@
 	from the UI and manipulating UI from Go in a seamless manner.
 </p>
 <br/>
+<p>
+	UPDATE: Added embedded files encryption/obfuscation.
+</p>
 </div>
 
 
