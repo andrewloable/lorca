@@ -1,4 +1,4 @@
-# Lorca
+# Lorca (with embedded files encryption/obfuscation)
 
 [![Build Status](https://img.shields.io/github/workflow/status/zserge/lorca/CI%20Pipeline)](https://github.com/zserge/lorca)
 [![GoDoc](https://godoc.org/github.com/zserge/lorca?status.svg)](https://godoc.org/github.com/zserge/lorca)
@@ -15,6 +15,9 @@
 	from the UI and manipulating UI from Go in a seamless manner.
 </p>
 <br/>
+<p>
+	UPDATE: Added embedded files encryption/obfuscation.
+</p>
 </div>
 
 
